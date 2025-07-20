@@ -39,7 +39,6 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import pdfplumber
 
@@ -84,7 +83,9 @@ REGISTER_HEADERS = [
 ]
 
 OUTPUT_CSV = os.getenv("CHEMFETCH_REGISTER_CSV", "data/chemical_register.csv")
-os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
+_output_dir = os.path.dirname(os.path.abspath(OUTPUT_CSV))
+if _output_dir:
+    os.makedirs(_output_dir, exist_ok=True)
 
 # Regex pattern definitions; each field may have multiple alternatives.
 PATTERNS: Dict[str, List[re.Pattern]] = {
@@ -237,11 +238,23 @@ def extract_description(text: str) -> Optional[str]:
 def compute_risk_rating(consequence: Optional[str], likelihood: Optional[str]) -> Optional[str]:
     if not consequence or not likelihood:
         return None
-    cons_map = {"insignificant": 1, "minor": 2, "moderate": 3, "major": 4, "severe": 5}
-    lik_map = {"rare": 1, "unlikely": 2, "possible": 3, "likely": 4, "almost certain": 5}
-    c = cons_map.get(consequence.lower())
-    l = lik_map.get(likelihood.lower())
-    if not c or not l:
+    cons_map = {
+        "insignificant": 1,
+        "minor": 2,
+        "moderate": 3,
+        "major": 4,
+        "severe": 5,
+    }
+    lik_map = {
+        "rare": 1,
+        "unlikely": 2,
+        "possible": 3,
+        "likely": 4,
+        "almost certain": 5,
+    }
+    c = cons_map.get(consequence.strip().lower())
+    l = lik_map.get(likelihood.strip().lower())
+    if c is None or l is None:
         return None
     score = c * l
     if score <= 4:
