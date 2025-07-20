@@ -16,6 +16,7 @@ It extracts key fields (product name, manufacturer, issue date, dangerous goods 
 - **Section 2 hazard statement summarizer** for description field.
 - **Risk placeholders** (Consequence, Likelihood, Risk Rating) ready for future integration.
 - **CSV auto-create** with consistent header ordering.
+- **Barcode deduplication** when CSV already has the same barcode.
 - **/health/ocr** diagnostics endpoint (checks import, path, version).
 - **CLI batch mode** for bulk conversion.
 
@@ -44,6 +45,7 @@ Default path: `data/chemical_register.csv`
 | Risk Rating                           | Computed from consequence x likelihood (if both present)    |
 | Safe Work Procedure (SWP) Requirement | Placeholder                                                 |
 | Comments/SWP                          | Placeholder                                                 |
+| Barcode                              | (Optional) barcode used for deduplication |
 
 ---
 
@@ -52,6 +54,7 @@ Default path: `data/chemical_register.csv`
 ```
 SdsParser/
 ├── sds_parser.py        # Main FastAPI + extraction logic + CLI
+├── register.py          # CSV helpers + dedup
 ├── data/                # Output CSV folder (auto-created)
 └── README.md            # This file
 ```
@@ -114,13 +117,14 @@ Example health response:
 Process multiple PDFs directly (bypasses HTTP):
 
 ```powershell
-python sds_parser.py file1.pdf file2.pdf --csv data/chemical_register.csv --json-out parsed.json
+python sds_parser.py file1.pdf file2.pdf --csv data/chemical_register.csv --barcode 12345 --json-out parsed.json
 ```
 
 Outputs:
 
 - Appends/creates `chemical_register.csv`.
 - Optional machine-readable `parsed.json`.
+- Records with the same barcode are skipped when appending to the CSV.
 
 ---
 
