@@ -1,0 +1,120 @@
+# -----------------------------
+
+# Python / FastAPI Project .gitignore
+
+# -----------------------------
+.git/
+
+# Virtual environments
+
+.venv/
+venv/
+ENV/
+
+# Python cache / bytecode
+
+**pycache**/
+\*.py\[cod]
+\*\$py.class
+
+# Build & packaging
+
+build/
+dist/
+\*.egg-info/
+.eggs/
+
+# Logs & debug
+
+\*.log
+logs/
+
+# Test / coverage outputs
+
+.coverage
+.coverage.\*
+htmlcov/
+.cache/
+.pytest\_cache/
+
+# IDE / Editor files
+
+.vscode/
+\*.code-workspace
+.idea/
+\*.swp
+\*.swo
+.DS\_Store
+Thumbs.db
+
+# Environment / secrets
+
+.env
+.env.\*
+\*.env
+.envrc
+
+# Data outputs (keep CSV if you want it versioned; otherwise ignore)
+
+# Comment out the next line if you DO want to track the generated register.
+
+data/chemical\_register.csv
+
+# General data dumps
+
+*.csv
+!requirements*.csv  # allow curated requirements if you export one intentionally
+parsed.json
+
+# PDFs used for testing (optional – remove if you want sample fixtures in repo)
+
+# test\_pdfs/
+
+# Reports / artifacts
+
+reports/
+
+# Jupyter (if used for experimentation)
+
+.ipynb\_checkpoints/
+\*.ipynb
+
+# Coverage / profiling
+
+.prof
+\*.prof
+.mypy\_cache/
+
+# Node / frontend (if you later add a UI)
+
+node\_modules/
+frontend/build/
+frontend/dist/
+
+# Docker leftovers
+
+\*.tar
+
+# OS junk
+
+ehthumbs.db
+Desktop.ini
+
+# Cache / temp
+
+.tmp/
+*.tmp
+\~\$*
+
+# Lock / dependency resolver (adjust if using Poetry or Pipenv)
+
+# If you adopt Poetry, you usually commit poetry.lock; do NOT ignore it then.
+
+\#poetry.lock
+Pipfile.lock
+
+# Optional: ignore pattern config if you expect local experimentation
+
+# patterns\_local.yml
+
+# End of file
