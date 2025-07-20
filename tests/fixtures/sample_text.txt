@@ -1,0 +1,10 @@
+Product Name: Fancy Stuff
+Manufacturer: ExampleCorp
+CAS No.: 64-17-5
+Revision: 12-04-24
+Hazardous Substance: Yes
+Dangerous Goods: No
+Class: 3
+Section 2
+Danger
+H225 Highly flammable liquid

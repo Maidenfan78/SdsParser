@@ -153,6 +153,17 @@ Edit the `PATTERNS` dict in `sds_parser.py`. For each new supplier:
 
 **Tip:** Keep a small test corpus; add a basic unit test per new pattern to avoid regressions.
 
+## 🧪 Running Tests
+
+The project includes a small pytest suite. After installing the required
+packages, simply run:
+
+```bash
+pytest
+```
+
+Fixtures with example SDS snippets live in `tests/fixtures`.
+
 ---
 
 ## ⚠️ Limitations & Next Steps
