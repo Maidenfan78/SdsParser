@@ -90,47 +90,8 @@ _output_dir = os.path.dirname(os.path.abspath(OUTPUT_CSV))
 if _output_dir:
     os.makedirs(_output_dir, exist_ok=True)
 
-# Regex pattern definitions; each field may have multiple alternatives.
-PATTERNS: Dict[str, List[re.Pattern]] = {
-    "product_name": [
-        re.compile(r"Product Identifier\s*[:\-]?\s*(.+)", re.I),
-        re.compile(r"^\s*Product Name\s*[:\-]?\s*(.+)$", re.I | re.M),
-        re.compile(r"^\s*Trade Name\s*[:\-]?\s*(.+)$", re.I | re.M),
-    ],
-    "vendor": [
-        re.compile(r"Manufacturer(?:/Supplier)?\s*[:\-]?\s*(.+)", re.I),
-        re.compile(r"Company Name\s*[:\-]?\s*(.+)", re.I),
-        re.compile(r"Supplier\s*[:\-]?\s*(.+)", re.I),
-    ],
-    "issue_date": [
-        re.compile(r"(Revision|Issue|Date of issue|Version date)\s*[:\-]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})", re.I),
-        re.compile(r"(Prepared|Last revised)\s*[:\-]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})", re.I),
-    ],
-    "dangerous_goods_class": [
-        re.compile(r"\b(?:Dangerous\s+Goods\s*)?Class(?:/Division)?\s*[:\-]?\s*([0-9A-Za-z\.]+)\b", re.I),
-    ],
-    "un_number": [
-        re.compile(r"\bUN\s*(\d{3,4})\b", re.I),
-    ],
-    "packing_group": [
-        re.compile(r"Packing\s+Group\s*[:\-]?\s*(I{1,3}|II|III)\b", re.I),
-    ],
-    "subsidiary_risks": [
-        re.compile(r"Subsidiary Risk[s]?\s*[:\-]?\s*(.+)", re.I),
-    ],
-    "cas_number": [
-        re.compile(r"\bCAS(?: No\.| Number)?\s*[:\-]?\s*([0-9]{2,7}-[0-9]{2}-[0-9])", re.I),
-    ],
-    "hazardous_substance": [
-        re.compile(r"Hazardous Substance\s*[:\-]?\s*(Yes|No)\b", re.I),
-    ],
-    "dangerous_good": [
-        re.compile(r"Dangerous Goods?\s*[:\-]?\s*(Yes|No)\b", re.I),
-    ],
-    "description_section2": [
-        re.compile(r"Section\s*2[^\n]*\n(.{0,800})", re.I | re.S),
-    ],
-}
+# Regex pattern definitions are loaded from patterns.yml via config.py
+from config import PATTERNS
 
 DATE_FORMATS_IN = ["%d/%m/%Y", "%d-%m-%Y", "%d/%m/%y", "%Y-%m-%d", "%m/%d/%Y"]
 
