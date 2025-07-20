@@ -32,6 +32,7 @@ Default path: `data/chemical_register.csv`
 | Vendor / Manufacturer                 | Supplier / manufacturer name                                |
 | Quantity                              | (Optional) Local stored quantity (not auto-extracted yet)   |
 | Location                              | (Optional) Storage location (manual / future enhancement)   |
+| CAS Number                            | Chemical Abstracts Service identifier (if found) |
 | SDS Available                         | Always `Yes` (placeholder)                                  |
 | Issue Date (DD/MM/YYYY)               | Normalized issue / revision date                            |
 | Hazardous Substance                   | Yes/No if pattern matches (currently only explicit formats) |

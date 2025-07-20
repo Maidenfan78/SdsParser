@@ -68,6 +68,7 @@ REGISTER_HEADERS = [
     "Vendor / Manufacturer",
     "Quantity",
     "Location",
+    "CAS Number",
     "SDS Available",
     "Issue Date (DD/MM/YYYY)",
     "Hazardous Substance",
@@ -117,6 +118,9 @@ PATTERNS: Dict[str, List[re.Pattern]] = {
     "subsidiary_risks": [
         re.compile(r"Subsidiary Risk[s]?\s*[:\-]?\s*(.+)", re.I),
     ],
+    "cas_number": [
+        re.compile(r"\bCAS(?: No\.| Number)?\s*[:\-]?\s*([0-9]{2,7}-[0-9]{2}-[0-9])", re.I),
+    ],
     "hazardous_substance": [
         re.compile(r"Hazardous Substance\s*[:\-]?\s*(Yes|No)\b", re.I),
     ],
@@ -138,6 +142,7 @@ class ParsedRecord(BaseModel):
     vendor: Optional[str] = None
     quantity: Optional[str] = None
     location: Optional[str] = None
+    cas_number: Optional[str] = None
     sds_available: str = "Yes"
     issue_date: Optional[str] = None  # normalized DD/MM/YYYY
     hazardous_substance: Optional[str] = None
@@ -159,6 +164,7 @@ class ParsedRecord(BaseModel):
             self.vendor or "",
             self.quantity or "",
             self.location or "",
+            self.cas_number or "",
             self.sds_available,
             self.issue_date or "",
             self.hazardous_substance or "",
@@ -322,6 +328,7 @@ def extract_fields(text: str) -> ParsedRecord:
     record.vendor = find_first(PATTERNS["vendor"], text_norm)
     record.quantity = None  # not auto-extracted yet
     record.location = None  # not auto-extracted yet
+    record.cas_number = find_first(PATTERNS["cas_number"], text_norm)
     raw_issue = find_first(PATTERNS["issue_date"], text_norm)
     record.issue_date = parse_date(raw_issue)
     record.hazardous_substance = find_first(PATTERNS["hazardous_substance"], text_norm)
