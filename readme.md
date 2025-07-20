@@ -144,12 +144,26 @@ Outputs:
 
 ## 🛠 Customizing Patterns
 
-Edit the `PATTERNS` dict in `sds_parser.py`. For each new supplier:
+Regex patterns are now loaded from `patterns.yml` at startup. To add or tweak
+patterns, edit that file instead of the code.
 
-- Parse once.
-- If field missing, inspect raw extracted text (add temporary `print(text[:2000])` or log to file).
-- Craft a new regex capturing just the desired portion.
-- Order matters: **most specific first**.
+Each entry maps a field name to one or more regex objects. A pattern entry can be
+just a string (defaults to the `IGNORECASE` flag) or a dictionary with `regex`
+and `flags` values. Flags are the standard Python `re` constants joined by `|`
+(e.g. `"I|M"` for `re.IGNORECASE | re.MULTILINE`).
+
+Example snippet:
+
+```yaml
+product_name:
+  - regex: "^\s*Product Name\s*[:\-]?\s*(.+)$"
+    flags: "I|M"
+  - regex: "^\s*Trade Name\s*[:\-]?\s*(.+)$"
+    flags: "I|M"
+```
+
+Parse once and, if a field is missing, inspect the raw text to craft a new
+regex. Order matters: **most specific first**.
 
 **Tip:** Keep a small test corpus; add a basic unit test per new pattern to avoid regressions.
 
@@ -182,7 +196,7 @@ Fixtures with example SDS snippets live in `tests/fixtures`.
 
 ## 🧰 Optional Enhancements
 
-- **Pattern Config File:** `patterns.yml` loaded on startup.
+- **Pattern Config File:** `patterns.yml` loaded on startup (implemented).
 - **Confidence Scoring:** Count pattern hits / fallback usage.
 - **Duplicate Detection:** Add PDF hash & timestamp columns.
 - **Dockerization:** Lightweight container for deployment.
