@@ -26,6 +26,7 @@ Example request (curl):
 
 CSV output default: data/chemical_register.csv
 """
+
 from __future__ import annotations
 
 import io
@@ -43,7 +44,7 @@ from pydantic import BaseModel
 import pdfplumber
 
 # Optional OCR imports (guarded)
-try:  # pragma: no cover (import guard)
+try:  # pragma: no cover
     import pytesseract  # type: ignore
     from PIL import Image  # type: ignore
     OCR_AVAILABLE = True
@@ -80,6 +81,7 @@ REGISTER_HEADERS = [
     "Risk Rating",
     "Safe Work Procedure (SWP) Requirement",
     "Comments/SWP",
+    "Barcode",
 ]
 
 OUTPUT_CSV = os.getenv("CHEMFETCH_REGISTER_CSV", "data/chemical_register.csv")
@@ -149,6 +151,7 @@ class ParsedRecord(BaseModel):
     risk_rating: Optional[str] = None
     swp_requirement: Optional[str] = None
     comments_swp: Optional[str] = None
+    barcode: Optional[str] = None
 
     def to_csv_row(self) -> List[str]:
         return [
@@ -169,12 +172,12 @@ class ParsedRecord(BaseModel):
             self.risk_rating or "",
             self.swp_requirement or "",
             self.comments_swp or "",
+            self.barcode or "",
         ]
 
 # --------------------------------------------------
 # UTILITIES
 # --------------------------------------------------
-
 def normalize_whitespace(txt: str) -> str:
     return re.sub(r"[\t\u00A0]+", " ", txt)
 
@@ -185,7 +188,7 @@ def find_first(patterns: List[re.Pattern], text: str) -> Optional[str]:
         if m:
             groups = [g for g in m.groups() if g]
             value = groups[-1].strip() if groups else m.group(0).strip()
-            return re.sub(r"[\s;,:]+$", "", value)
+            return re.sub(r"[\s;:]+$", "", value)
     return None
 
 
@@ -269,9 +272,6 @@ def compute_risk_rating(consequence: Optional[str], likelihood: Optional[str]) -
 def hash_pdf(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()[:16]
 
-# --------------------------------------------------
-# TEXT / OCR EXTRACTION
-# --------------------------------------------------
 
 def extract_text_from_pdf(data: bytes) -> str:
     text_chunks: List[str] = []
@@ -279,7 +279,7 @@ def extract_text_from_pdf(data: bytes) -> str:
     with pdfplumber.open(io.BytesIO(data)) as pdf:
         for page in pdf.pages:
             t = page.extract_text() or ""
-            if OCR_AVAILABLE and len(t.strip()) < 30:  # low density => candidate for OCR
+            if OCR_AVAILABLE and len(t.strip()) < 30:
                 try:
                     im = page.to_image(resolution=300).original
                     ocr_candidates.append(im)
@@ -297,9 +297,6 @@ def extract_text_from_pdf(data: bytes) -> str:
                 logger.warning(f"OCR page failed: {e}")
     return "\n".join(text_chunks)
 
-# --------------------------------------------------
-# FIELD EXTRACTION & INFERENCE
-# --------------------------------------------------
 
 def infer_flags(record: ParsedRecord, text_norm: str) -> None:
     if not record.hazardous_substance:
@@ -307,13 +304,11 @@ def infer_flags(record: ParsedRecord, text_norm: str) -> None:
             record.hazardous_substance = "No"
         elif re.search(r"Classified as Hazardous|Hazardous according to", text_norm, re.I):
             record.hazardous_substance = "Yes"
-
     if not record.dangerous_good:
         if re.search(r"Not classified as Dangerous Goods", text_norm, re.I):
             record.dangerous_good = "No"
         elif re.search(r"Classified as Dangerous Goods|Dangerous Goods according to", text_norm, re.I) or record.dangerous_goods_class:
             record.dangerous_good = "Yes"
-
     if not record.packing_group:
         m = re.search(r"Packing\s+Group\s*(I{1,3}|II|III)\b", text_norm, re.I)
         if m:
@@ -325,6 +320,8 @@ def extract_fields(text: str) -> ParsedRecord:
     record = ParsedRecord()
     record.product_name = find_first(PATTERNS["product_name"], text_norm)
     record.vendor = find_first(PATTERNS["vendor"], text_norm)
+    record.quantity = None  # not auto-extracted yet
+    record.location = None  # not auto-extracted yet
     raw_issue = find_first(PATTERNS["issue_date"], text_norm)
     record.issue_date = parse_date(raw_issue)
     record.hazardous_substance = find_first(PATTERNS["hazardous_substance"], text_norm)
@@ -335,24 +332,32 @@ def extract_fields(text: str) -> ParsedRecord:
     record.packing_group = find_first(PATTERNS["packing_group"], text_norm)
     record.subsidiary_risks = find_first(PATTERNS["subsidiary_risks"], text_norm)
     record.description = extract_description(text_norm)
-
     infer_flags(record, text_norm)
-
     record.risk_rating = compute_risk_rating(record.consequence, record.likelihood)
     return record
 
 # --------------------------------------------------
 # CSV OUTPUT
 # --------------------------------------------------
-
 def append_record_to_csv(record: ParsedRecord, path: str = OUTPUT_CSV) -> None:
+    new_row = record.to_csv_row()
     file_exists = os.path.isfile(path)
+
+    if file_exists:
+        with open(path, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if record.barcode and row.get("Barcode") == record.barcode:
+                    logger.info("Skipping duplicate based on barcode %s", record.barcode)
+                    return
+
     with open(path, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         if not file_exists:
             writer.writerow(REGISTER_HEADERS)
-        writer.writerow(record.to_csv_row())
+        writer.writerow(new_row)
 
+    logger.info("Appended record for barcode %s", record.barcode)
 
 def record_to_register_row_dict(record: ParsedRecord) -> Dict[str, str]:
     return {h: v for h, v in zip(REGISTER_HEADERS, record.to_csv_row())}
@@ -362,20 +367,18 @@ def record_to_register_row_dict(record: ParsedRecord) -> Dict[str, str]:
 # --------------------------------------------------
 app = FastAPI(title="ChemFetch SDS Parser", version="0.2.0")
 
-# OCR fallback & health
 import shutil
 
 def configure_tesseract():
     if not OCR_AVAILABLE:
         return
-    if shutil.which("tesseract"):
-        return
+    if shutil.which("tesseract"): return
     default_cmd = r"C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
     if os.path.isfile(default_cmd):
         try:
             pytesseract.pytesseract.tesseract_cmd = default_cmd  # type: ignore
             logger.info("Configured explicit Tesseract path")
-        except Exception as e:  # pragma: no cover
+        except Exception as e:
             logger.warning(f"Failed to set explicit tesseract path: {e}")
 
 configure_tesseract()
@@ -393,17 +396,11 @@ def ocr_health():
             status["error"] = str(e)
     return status
 
-# --------------------------------------------------
-# API SCHEMA MODELS
-# --------------------------------------------------
 class ParseResponse(BaseModel):
     hash: str
     record: Dict[str, Any]
     csv_path: str
 
-# --------------------------------------------------
-# ENDPOINTS
-# --------------------------------------------------
 @app.post("/parse-sds", response_model=ParseResponse)
 async def parse_sds(file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".pdf"):
@@ -419,6 +416,7 @@ async def parse_sds(file: UploadFile = File(...)):
     if not text.strip():
         raise HTTPException(status_code=422, detail="No extractable text in PDF (try OCR install)")
     record = extract_fields(text)
+    # API mode does not set barcode; use CLI for barcode-based dedupe
     if not (record.product_name or record.vendor):
         raise HTTPException(status_code=422, detail="Could not detect minimum fields; tune patterns")
     try:
@@ -437,22 +435,24 @@ async def parse_sds(file: UploadFile = File(...)):
 # --------------------------------------------------
 if __name__ == "__main__":
     import argparse
-
     parser = argparse.ArgumentParser(description="Parse one or more SDS PDFs into the chemical register CSV")
     parser.add_argument("pdfs", nargs="+", help="PDF file paths")
     parser.add_argument("--csv", default=OUTPUT_CSV, help="Output CSV path")
     parser.add_argument("--json-out", help="Optional JSON dump of parsed records")
+    parser.add_argument("--barcode", help="Barcode value to attach to all parsed records")
     args = parser.parse_args()
 
     parsed: List[Dict[str, Any]] = []
     for pdf_path in args.pdfs:
         with open(pdf_path, "rb") as f:
             data = f.read()
-        logger.info(f"Processing {pdf_path} ...")
+        logger.info(f"Processing {pdf_path} .")
         text = extract_text_from_pdf(data)
         rec = extract_fields(text)
+        rec.barcode = args.barcode
         append_record_to_csv(rec, args.csv)
         parsed.append(record_to_register_row_dict(rec))
+
     if args.json_out:
         with open(args.json_out, "w", encoding="utf-8") as jf:
             json.dump(parsed, jf, indent=2)
